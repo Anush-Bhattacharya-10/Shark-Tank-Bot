@@ -64,3 +64,4 @@ desktop.ini
 # Optional: Cache / Local Data
 # ================================
 .cache/
+.Releases/
