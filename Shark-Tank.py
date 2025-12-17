@@ -28,7 +28,10 @@ game_config = {
     "shark_starting_money": 1000000,
     "season_active": False,
     "season_start": None,
-    "investment_deadline_hours": 48
+    "investment_deadline_hours": 48,
+    "ipo_enabled": True,
+    "ipo_active": False,
+    "ipo_duration_hours": 48
 }
 
 # Investment pricing tiers
@@ -41,7 +44,9 @@ INVESTMENT_TIERS = {
 # ========== GLOBAL STATE ==========
 player_money = {}  # Track everyone's money: {user_id: amount}
 player_investments = {}  # Track entrepreneur investments: {user_id: {business_id: capital}}
+player_portfolios = {}  # Track IPO purchases: {user_id: {business_id: shares_owned}}
 businesses = {}  # Track all businesses: {business_id: {...}}
+ipo_listings = {}  # Track active IPOs: {business_id: {...}}
 eliminated_entrepreneurs = set()  # Entrepreneurs who walked away or failed to get deals
 
 round_data = {
@@ -194,7 +199,128 @@ async def admin_set_shark_money(interaction: discord.Interaction, amount: int):
     await interaction.response.send_message(f"✅ Shark starting money set to ${amount:,}")
 
 
-@bot.tree.command(name="admin_set_deadline", description="[ADMIN] Set investment deadline in hours")
+@bot.tree.command(name="admin_enable_ipo", description="[ADMIN] Enable or disable IPO phase for seasons")
+@app_commands.describe(enabled="True to enable IPO phase, False to disable")
+@app_commands.checks.has_permissions(administrator=True)
+async def admin_enable_ipo(interaction: discord.Interaction, enabled: bool):
+    """Toggle IPO feature"""
+    game_config["ipo_enabled"] = enabled
+    status = "enabled" if enabled else "disabled"
+    await interaction.response.send_message(f"✅ IPO phase {status} for future seasons")
+
+
+@bot.tree.command(name="admin_start_ipo", description="[ADMIN] Open the IPO market phase")
+@app_commands.checks.has_permissions(administrator=True)
+async def admin_start_ipo(interaction: discord.Interaction):
+    """Start IPO phase"""
+    if not game_config["ipo_enabled"]:
+        await interaction.response.send_message("❌ IPO phase is disabled. Enable with `/admin_enable_ipo true`",
+                                                ephemeral=True)
+        return
+
+    if not businesses:
+        await interaction.response.send_message("❌ No businesses to list! Complete the pitch phase first.",
+                                                ephemeral=True)
+        return
+
+    # Check if all entrepreneurs finished investing
+    pending_investments = [b for b in businesses.values() if not b.get("investment_complete", False)]
+    if pending_investments:
+        await interaction.response.send_message(
+            f"⚠️ {len(pending_investments)} entrepreneur(s) haven't finished investing yet!\n"
+            "Wait for them or start IPO anyway?",
+            view=ConfirmIPOStartView(),
+            ephemeral=True
+        )
+        return
+
+    game_config["ipo_active"] = True
+
+    embed = discord.Embed(
+        title="📈 IPO MARKET NOW OPEN!",
+        description=(
+            "The public market is now open for trading!\n\n"
+            "**Entrepreneurs:** List your company with `/list_ipo`\n"
+            "**All Players:** Browse and buy shares with `/view_ipos` and `/buy_ipo`\n\n"
+            f"Market closes in {game_config['ipo_duration_hours']} hours."
+        ),
+        color=discord.Color.gold()
+    )
+    embed.add_field(name="Available Companies", value=str(len(businesses)), inline=True)
+    embed.add_field(name="Total Capital Pool", value=f"${sum(player_money.values()):,}", inline=True)
+
+    await interaction.response.send_message(embed=embed)
+
+
+class ConfirmIPOStartView(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=60)
+
+    @discord.ui.button(label="✅ Start IPO Anyway", style=discord.ButtonStyle.success)
+    async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
+        game_config["ipo_active"] = True
+        await interaction.response.send_message("📈 **IPO MARKET OPENED!** (Some entrepreneurs still investing)")
+        self.stop()
+
+    @discord.ui.button(label="❌ Wait", style=discord.ButtonStyle.secondary)
+    async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_message("⏳ Waiting for entrepreneurs to finish investing...", ephemeral=True)
+        self.stop()
+
+
+@bot.tree.command(name="admin_close_ipo", description="[ADMIN] Force close the IPO market")
+@app_commands.checks.has_permissions(administrator=True)
+async def admin_close_ipo(interaction: discord.Interaction):
+    """Close IPO phase"""
+    if not game_config["ipo_active"]:
+        await interaction.response.send_message("❌ IPO market is not active.", ephemeral=True)
+        return
+
+    game_config["ipo_active"] = False
+
+    embed = discord.Embed(
+        title="🔒 IPO MARKET CLOSED",
+        description="The public market is now closed. No more trading allowed.",
+        color=discord.Color.red()
+    )
+    embed.add_field(name="IPOs Listed", value=str(len(ipo_listings)))
+    embed.add_field(name="Total Trades",
+                    value=str(sum(len(listing.get("buyers", {})) for listing in ipo_listings.values())))
+
+    await interaction.response.send_message(embed=embed)
+
+
+@bot.tree.command(name="admin_view_ipos", description="[ADMIN] View all IPO listings with full details")
+@app_commands.checks.has_permissions(administrator=True)
+async def admin_view_ipos(interaction: discord.Interaction):
+    """View all IPOs (admin)"""
+    if not ipo_listings:
+        await interaction.response.send_message("❌ No IPOs listed yet.", ephemeral=True)
+        return
+
+    embed = discord.Embed(title="📊 All IPO Listings (Admin View)", color=discord.Color.blue())
+
+    for biz_id, listing in ipo_listings.items():
+        biz = businesses[biz_id]
+        shares_sold = sum(listing.get("buyers", {}).values())
+        revenue = shares_sold * listing["price_per_share"]
+
+        field_value = (
+            f"**Entrepreneur:** {biz['entrepreneur_name']}\n"
+            f"**Hidden Quality:** {biz['final_quality']}/10 🤫\n"
+            f"**Price per Share:** ${listing['price_per_share']:,}\n"
+            f"**Shares Available:** {listing['shares_available']} ({listing['equity_offered']}%)\n"
+            f"**Shares Sold:** {shares_sold}\n"
+            f"**Revenue Raised:** ${revenue:,}\n"
+            f"**Original Valuation:** ${biz['valuation']:,}\n"
+            f"**IPO Valuation:** ${listing['ipo_valuation']:,}"
+        )
+
+        embed.add_field(name=f"🏢 {biz['pitch'][:40]}...", value=field_value, inline=False)
+
+    await interaction.response.send_message(embed=embed, ephemeral=True)
+
+
 @app_commands.describe(hours="Hours after deal closes for entrepreneurs to invest")
 @app_commands.checks.has_permissions(administrator=True)
 async def admin_set_deadline(interaction: discord.Interaction, hours: int):
@@ -266,19 +392,30 @@ async def admin_start_season(interaction: discord.Interaction):
     """Start new season"""
     game_config["season_active"] = True
     game_config["season_start"] = datetime.now()
+    game_config["ipo_active"] = False
 
     # Reset everything
     player_money.clear()
     player_investments.clear()
+    player_portfolios.clear()
     businesses.clear()
+    ipo_listings.clear()
     eliminated_entrepreneurs.clear()
     leaderboard["entrepreneurs"].clear()
     leaderboard["sharks"].clear()
 
-    await interaction.response.send_message(
-        "🎬 **NEW SEASON STARTED!**\n"
-        "All data has been reset. Let the pitches begin!"
+    embed = discord.Embed(
+        title="🎬 NEW SEASON STARTED!",
+        description="All data has been reset. Let the pitches begin!",
+        color=discord.Color.green()
     )
+
+    if game_config["ipo_enabled"]:
+        embed.add_field(name="IPO Feature", value="✅ Enabled for this season", inline=False)
+
+    embed.set_footer(text="Use /help to learn how to play!")
+
+    await interaction.response.send_message(embed=embed)
 
 
 @bot.tree.command(name="admin_business_report",
@@ -292,38 +429,74 @@ async def admin_business_report(interaction: discord.Interaction):
 
     await interaction.response.defer()
 
+    # Close IPO if still open
+    if game_config["ipo_active"]:
+        game_config["ipo_active"] = False
+        await interaction.followup.send("🔒 IPO market automatically closed for final report.")
+
     # Calculate outcomes for all businesses
     results = []
 
     for biz_id, biz in businesses.items():
         success, final_val, multiplier = calculate_business_outcome(biz_id)
 
+        # Get IPO data if exists
+        ipo = ipo_listings.get(biz_id)
+        ipo_dilution = ipo["equity_offered"] if ipo else 0
+
+        # Calculate base equity (before IPO)
+        entrepreneur_base_equity = 100 - biz["equity_given"]
+        shark_base_equity_each = biz["equity_given"] / len(biz["shark_ids"])
+
+        # Apply IPO dilution
+        dilution_factor = (100 - ipo_dilution) / 100 if ipo else 1
+        entrepreneur_equity = entrepreneur_base_equity * dilution_factor
+        shark_equity_each = shark_base_equity_each * dilution_factor
+
         # Calculate payouts
-        entrepreneur_equity = 100 - biz["equity_given"]
         entrepreneur_payout = (final_val * entrepreneur_equity / 100) if success else 0
+        shark_payout_each = (final_val * shark_equity_each / 100) if success else 0
 
-        # Distribute to sharks
-        shark_payout_each = (final_val * biz["equity_given"] / 100) / len(biz["shark_ids"]) if success else 0
-
-        # Update player money
+        # Update player money - entrepreneur
         if biz["entrepreneur_id"] in player_money:
             player_money[biz["entrepreneur_id"]] += entrepreneur_payout
         else:
             player_money[biz["entrepreneur_id"]] = entrepreneur_payout
 
+        # Update player money - sharks
         for shark_id in biz["shark_ids"]:
             if shark_id in player_money:
                 player_money[shark_id] += shark_payout_each
             else:
                 player_money[shark_id] = shark_payout_each
 
+        # Update player money - IPO buyers
+        ipo_payouts = {}
+        if ipo and success:
+            for buyer_id, shares in ipo["buyers"].items():
+                buyer_equity = (shares / ipo["shares_available"]) * ipo_dilution
+                buyer_payout = (final_val * buyer_equity / 100)
+
+                if buyer_id in player_money:
+                    player_money[buyer_id] += buyer_payout
+                else:
+                    player_money[buyer_id] = buyer_payout
+
+                ipo_payouts[buyer_id] = buyer_payout
+
         results.append({
             "business": biz,
+            "business_id": biz_id,
             "success": success,
             "final_valuation": final_val,
             "multiplier": multiplier,
             "entrepreneur_payout": entrepreneur_payout,
-            "shark_payout_each": shark_payout_each
+            "entrepreneur_equity": entrepreneur_equity,
+            "shark_payout_each": shark_payout_each,
+            "shark_equity_each": shark_equity_each,
+            "ipo_data": ipo,
+            "ipo_payouts": ipo_payouts,
+            "ipo_dilution": ipo_dilution
         })
 
     # Create report embed
@@ -343,13 +516,27 @@ async def admin_business_report(interaction: discord.Interaction):
             f"**Final Quality:** {biz['final_quality']}/10\n"
             f"**Capital Invested:** ${biz.get('capital_invested', 0):,}\n"
             f"**Initial Valuation:** ${biz['valuation']:,}\n"
-            f"**Final Valuation:** ${result['final_valuation']:,}\n"
         )
 
+        if result["ipo_data"]:
+            field_value += (
+                f"**IPO Raised:** ${sum(result['ipo_data']['buyers'].values()) * result['ipo_data']['price_per_share']:,}\n"
+                f"**IPO Dilution:** {result['ipo_dilution']:.1f}%\n"
+            )
+
+        field_value += f"**Final Valuation:** ${result['final_valuation']:,}\n"
+
         if result["success"]:
-            field_value += f"**Growth:** {result['multiplier']:.2f}x\n"
-            field_value += f"**Entrepreneur Gained:** ${result['entrepreneur_payout']:,.0f}\n"
-            field_value += f"**Each Shark Gained:** ${result['shark_payout_each']:,.0f}\n"
+            field_value += f"**Growth:** {result['multiplier']:.2f}x\n\n**💰 PAYOUTS:**\n"
+            field_value += f"• Entrepreneur ({result['entrepreneur_equity']:.1f}%): ${result['entrepreneur_payout']:,.0f}\n"
+            field_value += f"• Each Shark ({result['shark_equity_each']:.1f}%): ${result['shark_payout_each']:,.0f}\n"
+
+            if result["ipo_payouts"]:
+                field_value += "\n**IPO Investors:**\n"
+                for buyer_id, payout in list(result["ipo_payouts"].items())[:3]:
+                    member = interaction.guild.get_member(buyer_id)
+                    name = member.display_name if member else f"User {buyer_id}"
+                    field_value += f"• {name}: ${payout:,.0f}\n"
 
         report_embed.add_field(
             name=f"{i}. {biz['entrepreneur_name']}'s Business",
@@ -433,6 +620,7 @@ async def help_command(interaction: discord.Interaction):
         value=(
             "`/help` - Show this help menu\n"
             "`/balance` - Check your money balance\n"
+            "`/my_portfolio` - View all your investments\n"
             "`/leaderboard` - View money rankings\n"
             "`/status` - Check if there's an active pitch\n"
         ),
@@ -479,16 +667,22 @@ async def help_command(interaction: discord.Interaction):
         embed.add_field(
             name="⚙️ Admin Commands",
             value=(
-                "`/admin_set_roles` - **REQUIRED FIRST** - Set Shark & Entrepreneur roles\n"
-                "`/admin_start_season` - Start a new season\n"
-                "`/admin_config` - View current settings\n"
-                "`/admin_set_shark_money` - Set starting money for sharks\n"
-                "`/admin_set_deadline` - Set investment deadline\n"
-                "`/admin_view_businesses` - See all businesses & quality scores\n"
-                "`/admin_business_report` - Calculate final results & winners\n"
-                "`/admin_end_season` - End the season\n"
-                "`/admin_give_money` - Give money to a player\n"
-                "`/admin_set_balance` - Set player's exact balance\n"
+                "**Setup:**\n"
+                "`/admin_set_roles` - Set Shark & Entrepreneur roles\n"
+                "`/admin_start_season` - Start new season\n"
+                "`/admin_config` - View settings\n\n"
+                "**Game Control:**\n"
+                "`/admin_enable_ipo` - Toggle IPO feature\n"
+                "`/admin_start_ipo` - Open IPO market\n"
+                "`/admin_close_ipo` - Close IPO market\n"
+                "`/admin_business_report` - Calculate winners\n"
+                "`/admin_end_season` - End season\n\n"
+                "**Economy:**\n"
+                "`/admin_set_shark_money` - Set shark starting money\n"
+                "`/admin_give_money` - Give money to player\n"
+                "`/admin_set_balance` - Set exact balance\n"
+                "`/admin_view_businesses` - See quality scores\n"
+                "`/admin_view_ipos` - See all IPO data\n"
             ),
             inline=False
         )
@@ -509,14 +703,15 @@ async def help_command(interaction: discord.Interaction):
     embed.add_field(
         name="🎮 Game Flow",
         value=(
-            "1️⃣ Admin starts season with `/admin_start_season`\n"
+            "1️⃣ Admin starts season\n"
             "2️⃣ Entrepreneurs pitch one at a time\n"
             "3️⃣ Sharks make offers and negotiate\n"
-            "4️⃣ Entrepreneur accepts deal OR walks away (eliminated)\n"
+            "4️⃣ Entrepreneur accepts OR walks away (eliminated)\n"
             "5️⃣ Entrepreneur invests capital via DM\n"
-            "6️⃣ Repeat until all entrepreneurs have pitched\n"
-            "7️⃣ Admin runs `/admin_business_report` to determine winners\n"
-            "8️⃣ **Richest person (shark OR entrepreneur) wins!** 🏆\n"
+            "6️⃣ Repeat until all entrepreneurs pitched\n"
+            "7️⃣ **IPO PHASE** - Companies go public, players trade shares\n"
+            "8️⃣ Admin runs business report → Outcomes calculated\n"
+            "9️⃣ **Richest person wins!** 🏆\n"
         ),
         inline=False
     )
@@ -525,9 +720,10 @@ async def help_command(interaction: discord.Interaction):
     embed.add_field(
         name="💡 Pro Tips",
         value=(
-            "• **Entrepreneurs:** Negotiate hard to keep more equity!\n"
-            "• **Sharks:** Invest wisely - businesses can fail!\n"
-            "• **Everyone:** Success is based on hidden quality + investments\n"
+            "• **Entrepreneurs:** Keep equity, invest wisely, price IPO strategically\n"
+            "• **Sharks:** Diversify via IPO, watch for dilution\n"
+            "• **IPO Buyers:** Follow smart money, but beware of overpricing!\n"
+            "• **Everyone:** Quality scores are hidden - judge carefully\n"
             "• Walking away = elimination. No second chances!\n"
         ),
         inline=False
@@ -544,6 +740,341 @@ async def help_command(interaction: discord.Interaction):
     embed.set_footer(text="Good luck in the tank! 🦈💰")
 
     await interaction.response.send_message(embed=embed, ephemeral=True)
+
+
+@bot.tree.command(name="my_portfolio", description="View all your investments and equity holdings")
+async def my_portfolio(interaction: discord.Interaction):
+    """View portfolio"""
+    user_id = interaction.user.id
+
+    if user_id not in player_money and user_id not in player_portfolios:
+        await interaction.response.send_message("❌ You haven't participated in any deals yet!", ephemeral=True)
+        return
+
+    embed = discord.Embed(
+        title=f"💼 {interaction.user.display_name}'s Portfolio",
+        color=discord.Color.green()
+    )
+
+    # Show cash
+    cash = player_money.get(user_id, 0)
+    embed.add_field(name="💰 Cash Balance", value=f"${cash:,}", inline=False)
+
+    # Show owned businesses (entrepreneur)
+    owned_businesses = [b for b in businesses.values() if b["entrepreneur_id"] == user_id]
+    if owned_businesses:
+        biz_text = ""
+        for biz in owned_businesses:
+            # Calculate current equity after IPO dilution
+            ipo = ipo_listings.get(biz.get("business_id"))
+            equity = 100 - biz["equity_given"]
+            if ipo:
+                equity = equity * (1 - ipo["equity_offered"] / 100)
+
+            biz_text += f"**{biz['pitch'][:30]}...**\n"
+            biz_text += f"  Your Equity: {equity:.2f}%\n"
+            biz_text += f"  Status: {'🔓 Listed on IPO' if ipo else '🔒 Private'}\n\n"
+
+        embed.add_field(name="🏢 Your Businesses", value=biz_text, inline=False)
+
+    # Show shark investments
+    shark_investments = [(biz_id, biz) for biz_id, biz in businesses.items() if user_id in biz["shark_ids"]]
+    if shark_investments:
+        shark_text = ""
+        for biz_id, biz in shark_investments:
+            # Calculate equity after IPO dilution
+            original_equity = biz["equity_given"] / len(biz["shark_ids"])
+            ipo = ipo_listings.get(biz_id)
+            current_equity = original_equity
+            if ipo:
+                current_equity = original_equity * (1 - ipo["equity_offered"] / 100)
+
+            shark_text += f"**{biz['pitch'][:30]}...**\n"
+            shark_text += f"  Your Equity: {current_equity:.2f}%\n"
+            shark_text += f"  Original: {original_equity:.2f}% {'(diluted)' if ipo else ''}\n\n"
+
+        embed.add_field(name="🦈 Shark Investments", value=shark_text, inline=False)
+
+    # Show IPO purchases
+    if user_id in player_portfolios and player_portfolios[user_id]:
+        ipo_text = ""
+        for biz_id, shares in player_portfolios[user_id].items():
+            biz = businesses[biz_id]
+            listing = ipo_listings[biz_id]
+            equity_pct = (shares / listing["shares_available"]) * listing["equity_offered"]
+
+            ipo_text += f"**{biz['pitch'][:30]}...**\n"
+            ipo_text += f"  Shares: {shares} ({equity_pct:.2f}%)\n"
+            ipo_text += f"  Cost: ${shares * listing['price_per_share']:,}\n\n"
+
+        embed.add_field(name="📈 IPO Purchases", value=ipo_text, inline=False)
+
+    # Calculate total estimated value
+    embed.set_footer(text="Note: Final values determined after business report")
+
+    await interaction.response.send_message(embed=embed, ephemeral=True)
+
+
+@bot.tree.command(name="list_ipo", description="List your company on the IPO market")
+@app_commands.describe(
+    equity_percent="Percentage of your company to sell (1-50)",
+    price_per_share="Price per 1% equity share (e.g., 10000 = $10K per 1%)"
+)
+async def list_ipo(interaction: discord.Interaction, equity_percent: float, price_per_share: int):
+    """List company for IPO"""
+    if not game_config["ipo_active"]:
+        await interaction.response.send_message("❌ IPO market is not open yet!", ephemeral=True)
+        return
+
+    # Find user's business
+    user_business = None
+    business_id = None
+
+    for bid, biz in businesses.items():
+        if biz["entrepreneur_id"] == interaction.user.id:
+            user_business = biz
+            business_id = bid
+            break
+
+    if not user_business:
+        await interaction.response.send_message("❌ You don't have a business to list!", ephemeral=True)
+        return
+
+    if business_id in ipo_listings:
+        await interaction.response.send_message("❌ Your business is already listed!", ephemeral=True)
+        return
+
+    if equity_percent < 1 or equity_percent > 50:
+        await interaction.response.send_message("❌ You can only offer 1-50% of your company!", ephemeral=True)
+        return
+
+    if price_per_share < 1000:
+        await interaction.response.send_message("❌ Minimum price is $1,000 per 1% share!", ephemeral=True)
+        return
+
+    # Calculate IPO details
+    shares_available = int(equity_percent)  # 1 share = 1% equity
+    ipo_valuation = price_per_share * 100  # Implied total company value
+
+    ipo_listings[business_id] = {
+        "business_id": business_id,
+        "equity_offered": equity_percent,
+        "shares_available": shares_available,
+        "shares_remaining": shares_available,
+        "price_per_share": price_per_share,
+        "ipo_valuation": ipo_valuation,
+        "buyers": {},  # {user_id: shares_bought}
+        "listed_at": datetime.now()
+    }
+
+    # Create IPO announcement
+    embed = discord.Embed(
+        title="📈 NEW IPO LISTING!",
+        description=f"**{user_business['pitch']}**",
+        color=discord.Color.gold()
+    )
+
+    embed.add_field(name="Entrepreneur", value=interaction.user.mention, inline=True)
+    embed.add_field(name="Backing Sharks", value=", ".join(user_business['shark_names']), inline=True)
+    embed.add_field(name="━━━━━━━━", value="", inline=False)
+
+    embed.add_field(name="💰 Price per Share", value=f"${price_per_share:,}", inline=True)
+    embed.add_field(name="📊 Shares Available", value=f"{shares_available} shares ({equity_percent}%)", inline=True)
+    embed.add_field(name="💎 IPO Valuation", value=f"${ipo_valuation:,}", inline=True)
+
+    embed.add_field(name="━━━━━━━━", value="", inline=False)
+    embed.add_field(name="📍 Original Deal",
+                    value=f"${user_business['investment']:,} for {user_business['equity_given']}%", inline=True)
+    embed.add_field(name="📍 Original Valuation", value=f"${user_business['valuation']:,}", inline=True)
+
+    embed.set_footer(text=f"Use /buy_ipo to invest! | Business ID: {business_id}")
+
+    await interaction.response.send_message(embed=embed)
+
+
+@bot.tree.command(name="view_ipos", description="Browse all available IPO listings")
+async def view_ipos(interaction: discord.Interaction):
+    """View available IPOs"""
+    if not game_config["ipo_active"]:
+        await interaction.response.send_message("❌ IPO market is not open yet!", ephemeral=True)
+        return
+
+    if not ipo_listings:
+        await interaction.response.send_message(
+            "📭 No IPOs listed yet!\n"
+            "Entrepreneurs can list with `/list_ipo`",
+            ephemeral=True
+        )
+        return
+
+    embed = discord.Embed(
+        title="📈 Available IPO Listings",
+        description="Public market opportunities:",
+        color=discord.Color.blue()
+    )
+
+    for biz_id, listing in ipo_listings.items():
+        biz = businesses[biz_id]
+
+        # Calculate what's available
+        shares_sold = sum(listing["buyers"].values())
+        shares_left = listing["shares_remaining"]
+
+        if shares_left == 0:
+            status = "❌ SOLD OUT"
+        else:
+            status = f"✅ {shares_left} shares available"
+
+        field_value = (
+            f"**Entrepreneur:** {biz['entrepreneur_name']}\n"
+            f"**Sharks:** {', '.join(biz['shark_names'][:2])}{'...' if len(biz['shark_names']) > 2 else ''}\n"
+            f"**Price:** ${listing['price_per_share']:,}/share\n"
+            f"**Available:** {shares_left}/{listing['shares_available']} ({listing['equity_offered']}%)\n"
+            f"**IPO Valuation:** ${listing['ipo_valuation']:,}\n"
+            f"**Original Valuation:** ${biz['valuation']:,}\n"
+            f"**Status:** {status}\n"
+            f"**ID:** `{biz_id}`"
+        )
+
+        embed.add_field(
+            name=f"🏢 {biz['pitch'][:40]}...",
+            value=field_value,
+            inline=False
+        )
+
+    embed.set_footer(text="Use /buy_ipo <business_id> <shares> to invest")
+
+    await interaction.response.send_message(embed=embed, ephemeral=True)
+
+
+@bot.tree.command(name="buy_ipo", description="Buy shares in an IPO listing")
+@app_commands.describe(
+    business_id="The business ID from /view_ipos",
+    shares="Number of shares to buy (1 share = ~1% equity)"
+)
+async def buy_ipo(interaction: discord.Interaction, business_id: str, shares: int):
+    """Buy IPO shares"""
+    if not game_config["ipo_active"]:
+        await interaction.response.send_message("❌ IPO market is closed!", ephemeral=True)
+        return
+
+    if business_id not in ipo_listings:
+        await interaction.response.send_message("❌ Invalid business ID!", ephemeral=True)
+        return
+
+    listing = ipo_listings[business_id]
+    biz = businesses[business_id]
+
+    # Validations
+    if shares < 1:
+        await interaction.response.send_message("❌ Must buy at least 1 share!", ephemeral=True)
+        return
+
+    if shares > listing["shares_remaining"]:
+        await interaction.response.send_message(
+            f"❌ Only {listing['shares_remaining']} shares available!",
+            ephemeral=True
+        )
+        return
+
+    # Can't buy your own company's IPO
+    if interaction.user.id == biz["entrepreneur_id"]:
+        await interaction.response.send_message("❌ You can't buy shares in your own IPO!", ephemeral=True)
+        return
+
+    # Check if user has enough money
+    cost = shares * listing["price_per_share"]
+    user_balance = player_money.get(interaction.user.id, 0)
+
+    if user_balance < cost:
+        await interaction.response.send_message(
+            f"❌ Insufficient funds!\n"
+            f"Cost: ${cost:,}\n"
+            f"Your balance: ${user_balance:,}",
+            ephemeral=True
+        )
+        return
+
+    # Process purchase
+    player_money[interaction.user.id] -= cost
+    player_money[biz["entrepreneur_id"]] = player_money.get(biz["entrepreneur_id"], 0) + cost
+
+    # Update listing
+    listing["shares_remaining"] -= shares
+    if interaction.user.id not in listing["buyers"]:
+        listing["buyers"][interaction.user.id] = 0
+    listing["buyers"][interaction.user.id] += shares
+
+    # Update portfolio
+    if interaction.user.id not in player_portfolios:
+        player_portfolios[interaction.user.id] = {}
+    if business_id not in player_portfolios[interaction.user.id]:
+        player_portfolios[interaction.user.id][business_id] = 0
+    player_portfolios[interaction.user.id][business_id] += shares
+
+    # Calculate equity percentage
+    equity_pct = (shares / listing["shares_available"]) * listing["equity_offered"]
+
+    # Success message
+    embed = discord.Embed(
+        title="✅ IPO Purchase Successful!",
+        description=f"You bought {shares} shares in **{biz['pitch'][:50]}...**",
+        color=discord.Color.green()
+    )
+
+    embed.add_field(name="Shares Purchased", value=str(shares), inline=True)
+    embed.add_field(name="Equity Acquired", value=f"{equity_pct:.2f}%", inline=True)
+    embed.add_field(name="Total Cost", value=f"${cost:,}", inline=True)
+    embed.add_field(name="Remaining Balance", value=f"${player_money[interaction.user.id]:,}", inline=True)
+    embed.add_field(name="Shares Left", value=str(listing["shares_remaining"]), inline=True)
+
+    await interaction.response.send_message(embed=embed, ephemeral=False)
+
+    # Announce to channel if significant purchase
+    if equity_pct >= 5:
+        await interaction.channel.send(
+            f"🔔 **Major IPO Purchase!** {interaction.user.mention} just bought {equity_pct:.1f}% of "
+            f"{biz['entrepreneur_name']}'s business for ${cost:,}!"
+        )
+
+
+@bot.tree.command(name="cancel_ipo", description="Withdraw your company from the IPO market")
+async def cancel_ipo(interaction: discord.Interaction):
+    """Cancel IPO listing"""
+    if not game_config["ipo_active"]:
+        await interaction.response.send_message("❌ IPO market is not open!", ephemeral=True)
+        return
+
+    # Find user's IPO
+    user_ipo = None
+    business_id = None
+
+    for bid, listing in ipo_listings.items():
+        biz = businesses[bid]
+        if biz["entrepreneur_id"] == interaction.user.id:
+            user_ipo = listing
+            business_id = bid
+            break
+
+    if not user_ipo:
+        await interaction.response.send_message("❌ You don't have an active IPO listing!", ephemeral=True)
+        return
+
+    # Check if any shares were sold
+    if user_ipo["buyers"]:
+        await interaction.response.send_message(
+            "❌ Cannot cancel - shares have already been sold!",
+            ephemeral=True
+        )
+        return
+
+    # Remove listing
+    del ipo_listings[business_id]
+
+    await interaction.response.send_message(
+        "✅ Your IPO listing has been cancelled.",
+        ephemeral=True
+    )
 
 
 @bot.tree.command(name="balance", description="Check your current balance")
@@ -679,20 +1210,38 @@ async def slash_leaderboard(interaction: discord.Interaction):
 @bot.tree.command(name="status", description="Check current pitch status")
 async def slash_status(interaction: discord.Interaction):
     """Check status"""
-    if round_data["active"]:
-        embed = discord.Embed(
-            title="📊 Active Pitch",
-            description=round_data["pitch"],
-            color=discord.Color.orange()
-        )
-        embed.add_field(name="Entrepreneur", value=round_data["entrepreneur_name"])
-        embed.add_field(name="Asking", value=f"${round_data['asking_amount']:,} for {round_data['asking_equity']}%")
-        embed.add_field(name="Active Offers",
-                        value=str(len([o for o in round_data["offers"].values() if o.get("active")])))
+    embed = discord.Embed(title="📊 Game Status", color=discord.Color.blue())
 
-        await interaction.response.send_message(embed=embed)
+    # Season status
+    if game_config["season_active"]:
+        embed.add_field(name="Season", value="✅ Active", inline=True)
     else:
-        await interaction.response.send_message("✅ No active pitch. Entrepreneurs can start pitching!")
+        embed.add_field(name="Season", value="❌ Inactive", inline=True)
+
+    # Pitch status
+    if round_data["active"]:
+        embed.add_field(name="Active Pitch", value=f"✅ {round_data['entrepreneur_name']}", inline=True)
+        embed.add_field(name="Asking", value=f"${round_data['asking_amount']:,} for {round_data['asking_equity']}%",
+                        inline=True)
+    else:
+        embed.add_field(name="Active Pitch", value="❌ None", inline=True)
+        embed.add_field(name="Next", value="Entrepreneurs can pitch!", inline=True)
+
+    # IPO status
+    if game_config["ipo_enabled"]:
+        if game_config["ipo_active"]:
+            embed.add_field(name="IPO Market", value=f"✅ OPEN - {len(ipo_listings)} listings", inline=True)
+        else:
+            embed.add_field(name="IPO Market", value="🔒 Closed", inline=True)
+    else:
+        embed.add_field(name="IPO Market", value="❌ Disabled", inline=True)
+
+    # Stats
+    embed.add_field(name="Total Businesses", value=str(len(businesses)), inline=True)
+    embed.add_field(name="Active Players", value=str(len(player_money)), inline=True)
+    embed.add_field(name="Eliminated", value=str(len(eliminated_entrepreneurs)), inline=True)
+
+    await interaction.response.send_message(embed=embed)
 
 
 # ========== SHARK OFFER SYSTEM ==========
