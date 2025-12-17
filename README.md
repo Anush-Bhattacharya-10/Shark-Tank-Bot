@@ -31,7 +31,7 @@ Built on **Discord Slash Commands, Buttons, Modals, and a persistent SQLite data
 
 ---
 
-## 🆕 What's New in V2.0
+## 🆕 What's New in V1.2.0
 
 ### 🗄️ **Persistent Database System**
 - SQLite database stores all game data
