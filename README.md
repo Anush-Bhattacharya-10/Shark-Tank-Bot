@@ -53,8 +53,7 @@ Built on **Discord Slash Commands, Buttons, Modals, and a persistent SQLite data
 - Complete reputation history with reasons
 - Affects future game mechanics
 
-### 📢 **Event Logging Channel**
-- Dedicated channel for all game events
+### 📢 **Event Logging**
 - Automatic notifications for:
   - New pitches and deals
   - Investment activity
