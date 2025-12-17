@@ -19,6 +19,8 @@
 
 The bot is built entirely on **Discord Slash Commands, Buttons, Modals, and Select Menus**, requiring no manual tracking by admins once a season begins.
 
+[Add to your servers right now!](https://discord.com/oauth2/authorize?client_id=1450522916986028072&permissions=2416003072&integration_type=0&scope=bot+applications.commands)
+
 ---
 
 ## ✨ Feature Highlights
