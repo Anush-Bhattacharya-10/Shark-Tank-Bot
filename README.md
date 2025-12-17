@@ -47,12 +47,6 @@ Built on **Discord Slash Commands, Buttons, Modals, and a persistent SQLite data
 - Auto-closes when time expires
 - Detailed IPO summaries and analytics
 
-### ⭐ **Reputation System**
-- Track player reputation (0-200 scale)
-- Reputation tiers: Legendary, Excellent, Good, Fair, Poor
-- Complete reputation history with reasons
-- Affects future game mechanics
-
 ### 📢 **Event Logging**
 - Automatic notifications for:
   - New pitches and deals
@@ -71,8 +65,6 @@ Built on **Discord Slash Commands, Buttons, Modals, and a persistent SQLite data
 - Flexible starting balances
 
 ### 🏗️ **Modular Architecture**
-- Separate `database.py` module
-- Separate `ipo_system.py` module
 - Clean, maintainable codebase
 - Easy to extend with new features
 
