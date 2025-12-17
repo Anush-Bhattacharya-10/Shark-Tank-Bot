@@ -488,14 +488,14 @@ If Failure:
 
 ## 🔮 Future Enhancement Ideas
 
-* Persistent database (SQLite/PostgreSQL)
-* Multi-round pitching per season
+* IPO for companies after after funding (in development!!)
+* Persistent database (SQLite/PostgreSQL) (in development!!)
+* Web dashboard for stats (in development!!)
 * Advisor roles with special abilities
 * Business milestone events
 * Shark power-ups (steal deals, veto, etc.)
 * Achievements and badges
 * Historical season leaderboards
-* Web dashboard for stats
 
 ---
 
