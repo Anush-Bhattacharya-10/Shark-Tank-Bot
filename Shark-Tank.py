@@ -12,9 +12,9 @@ load_dotenv()
 
 TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 
-# Role IDs - Replace these with your actual Discord role IDs
-SHARK_ROLE_ID = int(os.getenv("SHARK_ROLE_ID", "1450561181721956363"))
-ENTREPRENEUR_ROLE_ID = int(os.getenv("ENTREPRENEUR_ROLE_ID", "1450560932550803556"))
+# Role IDs - Set by admin via commands
+SHARK_ROLE_ID = None
+ENTREPRENEUR_ROLE_ID = None
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -28,7 +28,7 @@ game_config = {
     "shark_starting_money": 1000000,
     "season_active": False,
     "season_start": None,
-    "investment_deadline_hours": 2
+    "investment_deadline_hours": 48
 }
 
 # Investment pricing tiers
@@ -93,6 +93,8 @@ def ensure_player_money(uid, is_shark=True):
 
 
 def has_role(member, role_id):
+    if role_id is None:
+        return False
     return any(role.id == role_id for role in member.roles)
 
 
@@ -125,16 +127,60 @@ def calculate_business_outcome(business_id):
 
 
 # ========== ADMIN COMMANDS ==========
+@bot.tree.command(name="admin_set_roles", description="[ADMIN] Set the Shark and Entrepreneur role IDs")
+@app_commands.describe(
+    shark_role="The role for Sharks",
+    entrepreneur_role="The role for Entrepreneurs"
+)
+@app_commands.checks.has_permissions(administrator=True)
+async def admin_set_roles(interaction: discord.Interaction, shark_role: discord.Role, entrepreneur_role: discord.Role):
+    """Set game roles"""
+    global SHARK_ROLE_ID, ENTREPRENEUR_ROLE_ID
+
+    SHARK_ROLE_ID = shark_role.id
+    ENTREPRENEUR_ROLE_ID = entrepreneur_role.id
+
+    embed = discord.Embed(title="✅ Roles Configured", color=discord.Color.green())
+    embed.add_field(name="🦈 Shark Role", value=shark_role.mention, inline=False)
+    embed.add_field(name="👔 Entrepreneur Role", value=entrepreneur_role.mention, inline=False)
+    embed.set_footer(text="Players with these roles can now participate!")
+
+    await interaction.response.send_message(embed=embed)
+
+
 @bot.tree.command(name="admin_config", description="[ADMIN] View current game configuration")
 @app_commands.checks.has_permissions(administrator=True)
 async def admin_config(interaction: discord.Interaction):
     """View game config"""
     embed = discord.Embed(title="⚙️ Game Configuration", color=discord.Color.blue())
+
+    # Role info
+    shark_role = interaction.guild.get_role(SHARK_ROLE_ID) if SHARK_ROLE_ID else None
+    entrepreneur_role = interaction.guild.get_role(ENTREPRENEUR_ROLE_ID) if ENTREPRENEUR_ROLE_ID else None
+
+    embed.add_field(
+        name="🦈 Shark Role",
+        value=shark_role.mention if shark_role else "❌ Not set",
+        inline=False
+    )
+    embed.add_field(
+        name="👔 Entrepreneur Role",
+        value=entrepreneur_role.mention if entrepreneur_role else "❌ Not set",
+        inline=False
+    )
+
     embed.add_field(name="Shark Starting Money", value=f"${game_config['shark_starting_money']:,}")
     embed.add_field(name="Investment Deadline", value=f"{game_config['investment_deadline_hours']} hours")
     embed.add_field(name="Season Active", value="✅ Yes" if game_config['season_active'] else "❌ No")
     embed.add_field(name="Active Businesses", value=str(len(businesses)))
     embed.add_field(name="Eliminated Entrepreneurs", value=str(len(eliminated_entrepreneurs)))
+
+    if not shark_role or not entrepreneur_role:
+        embed.add_field(
+            name="⚠️ Setup Required",
+            value="Use `/admin_set_roles` to configure roles before starting!",
+            inline=False
+        )
 
     await interaction.response.send_message(embed=embed)
 
@@ -357,6 +403,149 @@ async def admin_end_season(interaction: discord.Interaction):
 
 
 # ========== PLAYER COMMANDS ==========
+@bot.tree.command(name="help", description="Show all available commands and how to play")
+async def help_command(interaction: discord.Interaction):
+    """Show help information"""
+    is_admin = interaction.user.guild_permissions.administrator
+    is_shark = has_role(interaction.user, SHARK_ROLE_ID) if SHARK_ROLE_ID else False
+    is_entrepreneur = has_role(interaction.user, ENTREPRENEUR_ROLE_ID) if ENTREPRENEUR_ROLE_ID else False
+
+    embed = discord.Embed(
+        title="🦈 Shark Tank Bot - Help Guide",
+        description="Welcome to Shark Tank! Here's how to play:",
+        color=discord.Color.blue()
+    )
+
+    # Game Overview
+    embed.add_field(
+        name="📖 How It Works",
+        value=(
+            "**Entrepreneurs** pitch their business ideas to **Sharks** for investment.\n"
+            "Sharks invest virtual money, and entrepreneurs use the capital to grow their businesses.\n"
+            "After all pitches, businesses are evaluated and the **richest person wins!**"
+        ),
+        inline=False
+    )
+
+    # For Everyone
+    embed.add_field(
+        name="👥 Commands For Everyone",
+        value=(
+            "`/help` - Show this help menu\n"
+            "`/balance` - Check your money balance\n"
+            "`/leaderboard` - View money rankings\n"
+            "`/status` - Check if there's an active pitch\n"
+        ),
+        inline=False
+    )
+
+    # For Entrepreneurs
+    if is_entrepreneur or is_admin:
+        embed.add_field(
+            name="👔 Entrepreneur Commands",
+            value=(
+                "`/pitch <idea> <amount> <equity>` - Pitch your business\n"
+                "  Example: `/pitch Mobile App 100000 20`\n"
+                "  (Asking $100K for 20% equity)\n\n"
+                "During negotiation:\n"
+                "• Accept deals from sharks\n"
+                "• Decline and negotiate\n"
+                "• Counter offer\n"
+                "• Walk away (eliminates you!)\n\n"
+                "After deal:\n"
+                "`/invest <1|2|3>` - Invest capital to improve business (via DM)\n"
+                "`/finish_investing` - Stop investing early\n"
+            ),
+            inline=False
+        )
+
+    # For Sharks
+    if is_shark or is_admin:
+        embed.add_field(
+            name="🦈 Shark Commands",
+            value=(
+                "During pitches, use buttons to:\n"
+                "• **Make Offer** - Solo investment\n"
+                "• **Joint Offer** - Partner with other sharks\n"
+                "• **I'm Out** - Pass on the deal\n\n"
+                "You can negotiate back and forth endlessly!\n"
+                "Accept entrepreneur counters or make new offers."
+            ),
+            inline=False
+        )
+
+    # For Admins
+    if is_admin:
+        embed.add_field(
+            name="⚙️ Admin Commands",
+            value=(
+                "`/admin_set_roles` - **REQUIRED FIRST** - Set Shark & Entrepreneur roles\n"
+                "`/admin_start_season` - Start a new season\n"
+                "`/admin_config` - View current settings\n"
+                "`/admin_set_shark_money` - Set starting money for sharks\n"
+                "`/admin_set_deadline` - Set investment deadline\n"
+                "`/admin_view_businesses` - See all businesses & quality scores\n"
+                "`/admin_business_report` - Calculate final results & winners\n"
+                "`/admin_end_season` - End the season\n"
+                "`/admin_give_money` - Give money to a player\n"
+                "`/admin_set_balance` - Set player's exact balance\n"
+            ),
+            inline=False
+        )
+
+    # Investment Tiers
+    embed.add_field(
+        name="💰 Investment Options (After Getting Deal)",
+        value=(
+            "**Option 1: Basic Growth** - $25,000 → +1 Quality\n"
+            "**Option 2: Moderate Expansion** - $75,000 → +3 Quality\n"
+            "**Option 3: Aggressive Scale** - $150,000 → +5 Quality\n\n"
+            "Higher quality = better chance of business success!"
+        ),
+        inline=False
+    )
+
+    # Game Flow
+    embed.add_field(
+        name="🎮 Game Flow",
+        value=(
+            "1️⃣ Admin starts season with `/admin_start_season`\n"
+            "2️⃣ Entrepreneurs pitch one at a time\n"
+            "3️⃣ Sharks make offers and negotiate\n"
+            "4️⃣ Entrepreneur accepts deal OR walks away (eliminated)\n"
+            "5️⃣ Entrepreneur invests capital via DM\n"
+            "6️⃣ Repeat until all entrepreneurs have pitched\n"
+            "7️⃣ Admin runs `/admin_business_report` to determine winners\n"
+            "8️⃣ **Richest person (shark OR entrepreneur) wins!** 🏆\n"
+        ),
+        inline=False
+    )
+
+    # Tips
+    embed.add_field(
+        name="💡 Pro Tips",
+        value=(
+            "• **Entrepreneurs:** Negotiate hard to keep more equity!\n"
+            "• **Sharks:** Invest wisely - businesses can fail!\n"
+            "• **Everyone:** Success is based on hidden quality + investments\n"
+            "• Walking away = elimination. No second chances!\n"
+        ),
+        inline=False
+    )
+
+    # Setup warning
+    if not SHARK_ROLE_ID or not ENTREPRENEUR_ROLE_ID:
+        embed.add_field(
+            name="⚠️ Setup Required!",
+            value="Admins must run `/admin_set_roles` before the game can start!",
+            inline=False
+        )
+
+    embed.set_footer(text="Good luck in the tank! 🦈💰")
+
+    await interaction.response.send_message(embed=embed, ephemeral=True)
+
+
 @bot.tree.command(name="balance", description="Check your current balance")
 async def balance(interaction: discord.Interaction):
     """Check balance"""
@@ -386,6 +575,14 @@ async def balance(interaction: discord.Interaction):
 )
 async def slash_pitch(interaction: discord.Interaction, idea: str, asking_amount: int, asking_equity: float):
     """Entrepreneur pitches their idea"""
+    # Check if roles are configured
+    if not SHARK_ROLE_ID or not ENTREPRENEUR_ROLE_ID:
+        await interaction.response.send_message(
+            "❌ Game not configured! An admin must run `/admin_set_roles` first.",
+            ephemeral=True
+        )
+        return
+
     # Check if user has Entrepreneur role
     if not has_role(interaction.user, ENTREPRENEUR_ROLE_ID):
         await interaction.response.send_message("❌ Only users with the **Entrepreneur** role can pitch.",
@@ -504,6 +701,11 @@ class SharkOfferView(discord.ui.View):
         super().__init__(timeout=None)
 
     async def interaction_check(self, interaction):
+        # Check if roles configured
+        if not SHARK_ROLE_ID:
+            await interaction.response.send_message("❌ Game not configured yet!", ephemeral=True)
+            return False
+
         if not has_role(interaction.user, SHARK_ROLE_ID):
             await interaction.response.send_message("❌ Only users with the **Shark** role can make offers.",
                                                     ephemeral=True)
@@ -1158,12 +1360,18 @@ async def finish_investing(interaction: discord.Interaction):
 @bot.event
 async def on_ready():
     print(f"✅ {bot.user} is online!")
-    print(f"Configured for Shark Role ID: {SHARK_ROLE_ID}")
-    print(f"Configured for Entrepreneur Role ID: {ENTREPRENEUR_ROLE_ID}")
+    print(f"Shark Role ID: {SHARK_ROLE_ID if SHARK_ROLE_ID else 'Not set - use /admin_set_roles'}")
+    print(f"Entrepreneur Role ID: {ENTREPRENEUR_ROLE_ID if ENTREPRENEUR_ROLE_ID else 'Not set - use /admin_set_roles'}")
 
     try:
         synced = await bot.tree.sync()
         print(f"✅ Synced {len(synced)} slash command(s)")
+        print(f"\n{'=' * 50}")
+        print(f"🦈 SHARK TANK BOT READY!")
+        print(f"{'=' * 50}")
+        if not SHARK_ROLE_ID or not ENTREPRENEUR_ROLE_ID:
+            print(f"⚠️  SETUP REQUIRED: Run /admin_set_roles in Discord")
+        print(f"{'=' * 50}\n")
     except Exception as e:
         print(f"❌ Failed to sync commands: {e}")
 
