@@ -47,14 +47,7 @@ Built on **Discord Slash Commands, Buttons, Modals, and a persistent SQLite data
 - Auto-closes when time expires
 - Detailed IPO summaries and analytics
 
-### ⭐ **Reputation System**
-- Track player reputation (0-200 scale)
-- Reputation tiers: Legendary, Excellent, Good, Fair, Poor
-- Complete reputation history with reasons
-- Affects future game mechanics
-
-### 📢 **Event Logging Channel**
-- Dedicated channel for all game events
+### 📢 **Event Logging**
 - Automatic notifications for:
   - New pitches and deals
   - Investment activity
@@ -72,8 +65,6 @@ Built on **Discord Slash Commands, Buttons, Modals, and a persistent SQLite data
 - Flexible starting balances
 
 ### 🏗️ **Modular Architecture**
-- Separate `database.py` module
-- Separate `ipo_system.py` module
 - Clean, maintainable codebase
 - Easy to extend with new features
 
@@ -143,19 +134,6 @@ After accepting a deal, entrepreneurs receive investment capital and enter the *
 * **Capital Raise:** Entrepreneurs get IPO proceeds
 * **Diversification:** Players can invest in multiple businesses
 
-### ⭐ Reputation System (NEW!)
-
-* **Starting Score:** 100 points (0-200 scale)
-* **Reputation Tiers:**
-  * 🌟 Legendary (150+)
-  * ✨ Excellent (120-149)
-  * 👍 Good (100-119)
-  * ⚠️ Fair (80-99)
-  * ❌ Poor (<80)
-* **History Tracking:** All reputation changes logged with reasons
-* **Admin Control:** Penalize or reward players
-* **Visible to All:** Check any player's reputation with `/reputation`
-
 ### 🏆 Seasons & Winner Determination
 
 * Admin-controlled season lifecycle
@@ -194,8 +172,6 @@ Roles are **configured in Discord** by admins using `/admin_set_roles`:
 ```text
 Shark-Tank-Bot/
 ├── Shark-Tank.py        # Main bot logic with all game mechanics
-├── database.py          # Database management module (NEW!)
-├── ipo_system.py        # IPO functionality module (NEW!)
 ├── shark_tank.db        # SQLite database (auto-created)
 ├── start.bat            # Windows: Start bot
 ├── stop.bat             # Windows: Stop bot
@@ -279,8 +255,8 @@ python Shark-Tank.py
 
 Console output will confirm:
 ```
-✅ BotName is online!
-✅ Synced 25+ slash command(s)
+✅ Shark Tank Bot is online!
+✅ Synced 19 slash command(s)
 ✅ Database initialized successfully
 
 ==================================================
@@ -352,7 +328,6 @@ Players can run `/help` to see the complete game guide!
 | `/balance` | Check your money balance and reputation |
 | `/leaderboard` | View richest players with reputation scores |
 | `/status` | Check if there's an active pitch |
-| `/reputation [user]` | Check reputation score and history |
 
 ### 👔 Entrepreneur Commands
 
@@ -407,21 +382,17 @@ Players can run `/help` to see the complete game guide!
 | Command | Description |
 |---------|-------------|
 | `/admin_config` | View all current settings and season info |
-| `/admin_view_business` | View detailed business info privately (shows hidden quality) |
 | `/admin_view_businesses` | See all businesses with quality scores |
-| `/admin_reveal_quality` | Publicly reveal the quality scoring system |
 
 #### Economy Management
 | Command | Description |
 |---------|-------------|
 | `/admin_give_money` | Give money to a player |
 | `/admin_set_balance` | Set exact balance for a player |
-| `/admin_penalize` | Penalize a player (money + reputation) |
 
 #### IPO Management
 | Command | Description |
 |---------|-------------|
-| `/ipo_suggest_terms` | Get AI-calculated IPO terms for a business |
 | `/ipo_start` | Launch an IPO with custom settings |
 | `/ipo_close` | Manually close an IPO early |
 
@@ -653,42 +624,6 @@ Expected Raise: $600,000
 
 ---
 
-## ⭐ Reputation System Explained
-
-### How Reputation Works
-
-* **Starting Score:** 100 points
-* **Range:** 0-200
-* **Visible:** Anyone can check with `/reputation`
-* **Persistent:** Stored in database across sessions
-* **Affects:** Future game mechanics and privileges
-
-### Reputation Tiers
-
-| Score Range | Tier | Icon | Status |
-|-------------|------|------|--------|
-| 150+ | Legendary | 🌟 | Outstanding reputation |
-| 120-149 | Excellent | ✨ | Great standing |
-| 100-119 | Good | 👍 | Normal/Average |
-| 80-99 | Fair | ⚠️ | Concerning |
-| <80 | Poor | ❌ | Damaged reputation |
-
-### Reputation Events
-
-Admins can adjust reputation with `/admin_penalize`:
-* Insider trading/information: -20 to -50
-* Collusion: -30
-* Rule violations: -10 to -40
-* Meta-gaming: -20
-* Disruptive behavior: -15
-
-Future features may reward positive behavior:
-* Successful deals: +5
-* Completing investments on time: +2
-* Winning season: +10
-* Etc.
-
----
 
 ## 🔐 Security & Best Practices
 
