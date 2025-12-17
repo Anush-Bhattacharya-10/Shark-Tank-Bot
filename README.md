@@ -21,6 +21,8 @@ The bot is built entirely on **Discord Slash Commands, Buttons, Modals, Select M
 
 **Winner = Richest person (Shark OR Entrepreneur) at season's end!** 🏆
 
+<p align="center"> <a href="https://discord.com/oauth2/authorize?client_id=1450522916986028072&permissions=2416003072&integration_type=0&scope=bot+applications.commands"> Add to your servers now! </a></p>
+
 ---
 
 ## ✨ Feature Highlights
@@ -486,14 +488,14 @@ If Failure:
 
 ## 🔮 Future Enhancement Ideas
 
-* Persistent database (SQLite/PostgreSQL)
-* Multi-round pitching per season
+* IPO for companies after after funding (in development!!)
+* Persistent database (SQLite/PostgreSQL) (in development!!)
+* Web dashboard for stats (in development!!)
 * Advisor roles with special abilities
 * Business milestone events
 * Shark power-ups (steal deals, veto, etc.)
 * Achievements and badges
 * Historical season leaderboards
-* Web dashboard for stats
 
 ---
 
