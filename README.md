@@ -1,31 +1,85 @@
 # 🦈 Shark Tank Discord Bot
 
 <p align="center">
-  <strong>An interactive Shark Tank–style negotiation & investment game for Discord servers</strong>
+  <strong>An interactive Shark Tank–style negotiation & investment game for Discord servers</strong><br>
+  <em>Now with Persistent Database, IPO System, Reputation Tracking & More!</em>
 </p>
 
 <p align="center">
   <img alt="Python" src="https://img.shields.io/badge/Python-3.10%2B-blue">
   <img alt="Discord" src="https://img.shields.io/badge/Discord.py-2.x-purple">
+  <img alt="Database" src="https://img.shields.io/badge/Database-SQLite-orange">
   <img alt="License" src="https://img.shields.io/badge/License-MIT-green">
-  <img alt="Status" src="https://img.shields.io/badge/Status-Stable-brightgreen">
+  <img alt="Status" src="https://img.shields.io/badge/Status-Ready-brightgreen">
 </p>
 
 ---
 
 ## 📌 Overview
 
-**Shark Tank Discord Bot** is a fully interactive Discord game inspired by the *Shark Tank* TV format. Entrepreneurs pitch ideas, Sharks negotiate deals (solo or joint), capital is invested strategically via DM, and businesses are evaluated at the end of a season to determine the richest player.
+**Shark Tank Discord Bot** is a fully interactive Discord game inspired by the *Shark Tank* TV format. Entrepreneurs pitch ideas, Sharks negotiate deals (solo or joint), capital is invested strategically via DM, businesses are evaluated at season's end, and now you can **take companies public with IPOs**!
 
-The bot is built entirely on **Discord Slash Commands, Buttons, Modals, Select Menus, and DM interactions**, requiring no manual tracking by admins once configured.
+Built on **Discord Slash Commands, Buttons, Modals, and a persistent SQLite database** - no manual tracking needed once configured.
 
 **Winner = Richest person (Shark OR Entrepreneur) at season's end!** 🏆
 
-<p align="center"> <a href="https://discord.com/oauth2/authorize?client_id=1450522916986028072&permissions=2416003072&integration_type=0&scope=bot+applications.commands"> Add to your servers now! </a></p>
+<p align="center"> 
+  <a href="https://discord.com/oauth2/authorize?client_id=1450522916986028072&permissions=2416003072&integration_type=0&scope=bot+applications.commands"> 
+    <strong>Add to your servers now!</strong>
+  </a>
+</p>
 
 ---
 
-## ✨ Feature Highlights
+## 🆕 What's New in V2.0
+
+### 🗄️ **Persistent Database System**
+- SQLite database stores all game data
+- Survives bot restarts - no data loss!
+- Complete history tracking for analytics
+- Season, player, business, and IPO records
+
+### 📈 **IPO System** 
+- Take successful businesses public!
+- AI-calculated suggested share prices
+- Market orders (instant buy) and limit orders (price target)
+- Configurable IPO duration
+- Auto-closes when time expires
+- Detailed IPO summaries and analytics
+
+### ⭐ **Reputation System**
+- Track player reputation (0-200 scale)
+- Reputation tiers: Legendary, Excellent, Good, Fair, Poor
+- Complete reputation history with reasons
+- Affects future game mechanics
+
+### 📢 **Event Logging Channel**
+- Dedicated channel for all game events
+- Automatic notifications for:
+  - New pitches and deals
+  - Investment activity
+  - IPO launches and closures
+  - Business reports
+  - Player penalties
+  - Leaderboard updates
+
+### ⚙️ **Advanced Admin Controls**
+- Season configuration wizard
+- Private business quality viewing
+- Player penalty system (money + reputation)
+- Quality range reveal command
+- Configurable quality ranges
+- Flexible starting balances
+
+### 🏗️ **Modular Architecture**
+- Separate `database.py` module
+- Separate `ipo_system.py` module
+- Clean, maintainable codebase
+- Easy to extend with new features
+
+---
+
+## ✨ Core Feature Highlights
 
 ### 🎤 Pitch & Negotiation System
 
@@ -56,17 +110,17 @@ After accepting a deal, entrepreneurs receive investment capital and enter the *
 
 * Investment options sent via **private DM**
 * **Three investment tiers:**
-  * **Basic Growth** ($25,000) → +1 Quality Score
+  * **Basic Growth** ($10,000) → +1 Quality Score
   * **Moderate Expansion** ($75,000) → +3 Quality Score
   * **Aggressive Scale** ($150,000) → +5 Quality Score
 * **Multiple investments allowed** until capital is exhausted
 * Remaining capital automatically added to balance
-* 48-hour deadline (configurable by admin)
+* Configurable deadline (default: 48 hours)
 * Commands: `/invest <1|2|3>` and `/finish_investing`
 
 ### 📊 Business Simulation Engine
 
-* Each business receives a **hidden quality score (1–10)** at pitch time
+* Each business receives a **hidden quality score** at pitch time
 * Quality score determines:
   * **Success probability** (10% per point, max 100%)
   * **Valuation multiplier** on success (1.5x to 5x based on final quality)
@@ -78,11 +132,35 @@ After accepting a deal, entrepreneurs receive investment capital and enter the *
   * Entrepreneur receives payout based on retained equity %
   * Sharks receive payout split based on their equity %
 
+### 📈 IPO System (NEW!)
+
+* **AI-Suggested Terms:** Get calculated share price and allocation
+* **Market Orders:** Buy shares instantly at current price
+* **Limit Orders:** Set price targets and wait for execution
+* **Configurable Duration:** Admin sets IPO open time (hours)
+* **Auto-Close:** IPOs automatically close when time expires
+* **Investor Tracking:** Complete order history and analytics
+* **Capital Raise:** Entrepreneurs get IPO proceeds
+* **Diversification:** Players can invest in multiple businesses
+
+### ⭐ Reputation System (NEW!)
+
+* **Starting Score:** 100 points (0-200 scale)
+* **Reputation Tiers:**
+  * 🌟 Legendary (150+)
+  * ✨ Excellent (120-149)
+  * 👍 Good (100-119)
+  * ⚠️ Fair (80-99)
+  * ❌ Poor (<80)
+* **History Tracking:** All reputation changes logged with reasons
+* **Admin Control:** Penalize or reward players
+* **Visible to All:** Check any player's reputation with `/reputation`
+
 ### 🏆 Seasons & Winner Determination
 
 * Admin-controlled season lifecycle
 * **Shared economy:** Sharks AND Entrepreneurs compete for wealth
-* Live money leaderboard (`/leaderboard`)
+* Live money leaderboard (`/leaderboard`) with reputation scores
 * End-of-season business report (`/admin_business_report`) reveals:
   * Business success/failure outcomes
   * Quality scores and investment details
@@ -116,12 +194,15 @@ Roles are **configured in Discord** by admins using `/admin_set_roles`:
 ```text
 Shark-Tank-Bot/
 ├── Shark-Tank.py        # Main bot logic with all game mechanics
-├── start.bat           # Windows: Start bot
-├── stop.bat            # Windows: Stop bot
-├── .env                # Environment variables (gitignored)
-├── requirements.txt    # Python dependencies
-├── .venv/              # Virtual environment (gitignored)
-└── README.md           # This file
+├── database.py          # Database management module (NEW!)
+├── ipo_system.py        # IPO functionality module (NEW!)
+├── shark_tank.db        # SQLite database (auto-created)
+├── start.bat            # Windows: Start bot
+├── stop.bat             # Windows: Stop bot
+├── .env                 # Environment variables (gitignored)
+├── requirements.txt     # Python dependencies
+├── .venv/               # Virtual environment (gitignored)
+└── README.md            # This file
 ```
 
 ---
@@ -168,6 +249,8 @@ pip install -r requirements.txt
 * `discord.py>=2.0`
 * `python-dotenv`
 
+**Note:** SQLite is built into Python - no extra installation needed!
+
 ### 5️⃣ Configure Environment Variables
 
 Create a `.env` file in the root directory:
@@ -197,9 +280,8 @@ python Shark-Tank.py
 Console output will confirm:
 ```
 ✅ BotName is online!
-Shark Role ID: Not set - use /admin_set_roles
-Entrepreneur Role ID: Not set - use /admin_set_roles
-✅ Synced 20 slash command(s)
+✅ Synced 25+ slash command(s)
+✅ Database initialized successfully
 
 ==================================================
 🦈 SHARK TANK BOT READY!
@@ -207,6 +289,8 @@ Entrepreneur Role ID: Not set - use /admin_set_roles
 ⚠️  SETUP REQUIRED: Run /admin_set_roles in Discord
 ==================================================
 ```
+
+The database (`shark_tank.db`) will be automatically created on first run!
 
 ### ⛔ Stop (Take Bot Offline)
 
@@ -235,15 +319,25 @@ Run this command in any channel:
 /admin_set_roles shark_role:@Shark entrepreneur_role:@Entrepreneur
 ```
 
-### Step 3: Start Season
+### Step 3: Set Event Channel (Recommended)
+```
+/admin_set_event_channel channel:#shark-tank-events
+```
+
+### Step 4: Configure Season Settings (Optional)
+```
+/admin_configure_season shark_money:1000000 entrepreneur_money:0 investment_deadline:48 quality_min:1 quality_max:10
+```
+
+### Step 5: Start Season
 ```
 /admin_start_season
 ```
 
-### Step 4: Assign Roles
+### Step 6: Assign Roles
 Assign the Shark/Entrepreneur roles to your players.
 
-### Step 5: Let Players Learn
+### Step 7: Let Players Learn
 Players can run `/help` to see the complete game guide!
 
 ---
@@ -255,9 +349,10 @@ Players can run `/help` to see the complete game guide!
 | Command | Description |
 |---------|-------------|
 | `/help` | Comprehensive game guide (personalized by role) |
-| `/balance` | Check your current money balance |
-| `/leaderboard` | View richest players |
+| `/balance` | Check your money balance and reputation |
+| `/leaderboard` | View richest players with reputation scores |
 | `/status` | Check if there's an active pitch |
+| `/reputation [user]` | Check reputation score and history |
 
 ### 👔 Entrepreneur Commands
 
@@ -285,29 +380,50 @@ Players can run `/help` to see the complete game guide!
 * Make new offers
 * Counter back
 
+### 📈 IPO Commands (All Players)
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| `/ipo_list` | View all active IPOs | `/ipo_list` |
+| `/ipo_buy` | Buy shares in an IPO | `/ipo_buy ipo_id:1 shares:100 order_type:market` |
+
+**Order Types:**
+* **Market Order:** Buy immediately at current price (guaranteed fill)
+* **Limit Order:** Set maximum price, order fills if price matches
+
 ### ⚙️ Admin Commands
 
 #### Season Management
 | Command | Description |
 |---------|-------------|
 | `/admin_set_roles` | **REQUIRED FIRST** - Configure Shark & Entrepreneur roles |
-| `/admin_start_season` | Start new season (resets all data) |
+| `/admin_set_event_channel` | Set channel for automatic event logging |
+| `/admin_configure_season` | Configure season settings before starting |
+| `/admin_start_season` | Start new season with configured settings |
 | `/admin_end_season` | End current season |
 | `/admin_business_report` | Calculate business outcomes & determine winners |
 
-#### Configuration
+#### Configuration & Viewing
 | Command | Description |
 |---------|-------------|
-| `/admin_config` | View all current settings |
-| `/admin_set_shark_money` | Set starting money for sharks (default: $1M) |
-| `/admin_set_deadline` | Set investment deadline in hours (default: 48) |
+| `/admin_config` | View all current settings and season info |
+| `/admin_view_business` | View detailed business info privately (shows hidden quality) |
+| `/admin_view_businesses` | See all businesses with quality scores |
+| `/admin_reveal_quality` | Publicly reveal the quality scoring system |
 
 #### Economy Management
 | Command | Description |
 |---------|-------------|
 | `/admin_give_money` | Give money to a player |
 | `/admin_set_balance` | Set exact balance for a player |
-| `/admin_view_businesses` | See all businesses with quality scores |
+| `/admin_penalize` | Penalize a player (money + reputation) |
+
+#### IPO Management
+| Command | Description |
+|---------|-------------|
+| `/ipo_suggest_terms` | Get AI-calculated IPO terms for a business |
+| `/ipo_start` | Launch an IPO with custom settings |
+| `/ipo_close` | Manually close an IPO early |
 
 ---
 
@@ -316,14 +432,16 @@ Players can run `/help` to see the complete game guide!
 ### Game Flow Overview
 
 ```
-1. Admin starts season → All balances reset
+1. Admin configures and starts season
 2. Entrepreneur pitches (one per season)
 3. Sharks negotiate and make offers
 4. Entrepreneur accepts OR walks away (eliminated)
 5. Entrepreneur invests capital via DM (secret)
 6. Repeat for all entrepreneurs
-7. Admin runs business report
-8. Winner announced (richest player)
+7. (OPTIONAL) Admin launches IPOs for successful businesses
+8. Players buy IPO shares to diversify
+9. Admin runs business report
+10. Winner announced (richest player)
 ```
 
 ### For Entrepreneurs 👔
@@ -351,9 +469,19 @@ Players can run `/help` to see the complete game guide!
    * Higher quality = better success chance
    * Leftover money goes to your balance
 
-5. **Wait for Business Report:**
+5. **Monitor Reputation:**
+   * Check with `/reputation`
+   * Maintain good standing
+   * Avoid penalties
+
+6. **(Optional) IPO Phase:**
+   * Admin may launch IPO for your business
+   * You receive proceeds from share sales
+   * Keep some shares or sell all
+
+7. **Wait for Business Report:**
    * Admin calculates outcomes
-   * Successful businesses pay you based on retained equity
+   * Successful businesses pay based on equity
    * Failed businesses pay nothing
 
 ### For Sharks 🦈
@@ -375,16 +503,38 @@ Players can run `/help` to see the complete game guide!
    * Don't overcommit to bad deals
    * Diversify investments
 
-5. **Wait for outcomes:**
-   * Successful businesses pay you based on your equity
+5. **(Optional) Invest in IPOs:**
+   * Buy shares in public companies
+   * Market orders for guaranteed allocation
+   * Limit orders for better prices
+   * Diversify across multiple businesses
+
+6. **Maintain Reputation:**
+   * Avoid penalties
+   * Build trust
+   * Reputation affects game dynamics
+
+7. **Wait for outcomes:**
+   * Successful businesses pay based on equity
    * Failed businesses lose your investment
+   * IPO investments add to portfolio
+
+### For Everyone 💡
+
+* **Check Leaderboard:** Monitor standings with `/leaderboard`
+* **View Events:** Watch event channel for all activity
+* **Plan Strategy:** Balance risk across multiple investments
+* **Manage Reputation:** Keep score high for advantages
+* **Participate in IPOs:** Diversify beyond initial deals
 
 ### Pro Tips 💡
 
-* **Entrepreneurs:** Keep as much equity as possible while still getting capital
+* **Entrepreneurs:** Keep as much equity as possible while getting needed capital
 * **Sharks:** Quality scores are hidden - judge pitches carefully
-* **Both:** Success isn't guaranteed - even great businesses can fail!
-* **Strategy:** Balanced portfolio beats all-or-nothing bets
+* **IPO Strategy:** Invest in businesses with strong fundamentals
+* **Reputation Matters:** Good reputation may unlock future benefits
+* **Event Channel:** Monitor for market intelligence
+* **Both:** Success isn't guaranteed - diversify!
 
 ---
 
@@ -394,15 +544,15 @@ After closing a deal, entrepreneurs choose how to invest:
 
 | Tier | Cost | Quality Boost | Best For |
 |------|------|---------------|----------|
-| **Basic Growth** | $25K | +1 | Small improvements, conserving capital |
+| **Basic Growth** | $10K | +1 | Small improvements, conserving capital |
 | **Moderate Expansion** | $75K | +3 | Balanced risk/reward |
 | **Aggressive Scale** | $150K | +5 | Maximum growth, high investment |
 
 **Example Strategy:**
 * Received $200K investment
 * Buy 1x Aggressive Scale ($150K) → +5 quality
-* Buy 2x Basic Growth ($50K) → +2 quality
-* Total: $200K spent, +7 quality boost
+* Buy 5x Basic Growth ($50K) → +5 quality
+* Total: $200K spent, +10 quality boost
 * Leftover: $0
 
 **OR:**
@@ -416,8 +566,8 @@ After closing a deal, entrepreneurs choose how to invest:
 ### Quality Score System
 
 ```
-Initial Quality (Hidden): 1-10 (randomly assigned)
-Investment Boosts: +0 to +15 (from entrepreneur spending)
+Initial Quality (Hidden): Configurable range (default 1-10)
+Investment Boosts: +0 to +15+ (from entrepreneur spending)
 Final Quality: Initial + Boosts
 
 Success Chance = Final Quality × 10%
@@ -446,13 +596,131 @@ If Failure:
 
 ---
 
+## 📈 IPO System Explained
+
+### IPO Lifecycle
+
+```
+1. Business receives funding and grows
+2. Admin runs /ipo_suggest_terms <business_id>
+3. AI calculates optimal share price and allocation
+4. Admin launches IPO with /ipo_start
+5. Players buy shares (market or limit orders)
+6. IPO auto-closes after duration expires
+7. Entrepreneur receives proceeds
+8. Business performance affects share value
+```
+
+### IPO Pricing Formula
+
+**AI Calculation Considers:**
+* Current business valuation
+* Initial vs. final quality score
+* Quality multiplier (higher quality = higher price)
+* Valuation tier (different tiers have different base prices)
+* Industry-standard IPO percentages (20-30% typically)
+
+**Valuation Tiers:**
+* Under $500K → $10 base, 100K shares
+* $500K-$2M → $25 base, 80K shares
+* $2M-$5M → $50 base, 60K shares
+* Over $5M → $100 base, 50K shares
+
+**Example:**
+```
+Business Valuation: $1.5M
+Final Quality: 8/10
+Quality Multiplier: 1.2
+
+Suggested Share Price: $25 × 1.2 = $30
+Shares to Offer: 20,000 (25% of company)
+Expected Raise: $600,000
+```
+
+### Order Types
+
+**Market Order:**
+* Instant execution at current price
+* Guaranteed fill (if shares available)
+* No price negotiation
+* Best for: Hot IPOs, guaranteed allocation
+
+**Limit Order:**
+* Set maximum price you'll pay
+* Only executes if price meets/beats limit
+* Might not fill if price stays above
+* Best for: Patient investors, value seekers
+
+---
+
+## ⭐ Reputation System Explained
+
+### How Reputation Works
+
+* **Starting Score:** 100 points
+* **Range:** 0-200
+* **Visible:** Anyone can check with `/reputation`
+* **Persistent:** Stored in database across sessions
+* **Affects:** Future game mechanics and privileges
+
+### Reputation Tiers
+
+| Score Range | Tier | Icon | Status |
+|-------------|------|------|--------|
+| 150+ | Legendary | 🌟 | Outstanding reputation |
+| 120-149 | Excellent | ✨ | Great standing |
+| 100-119 | Good | 👍 | Normal/Average |
+| 80-99 | Fair | ⚠️ | Concerning |
+| <80 | Poor | ❌ | Damaged reputation |
+
+### Reputation Events
+
+Admins can adjust reputation with `/admin_penalize`:
+* Insider trading/information: -20 to -50
+* Collusion: -30
+* Rule violations: -10 to -40
+* Meta-gaming: -20
+* Disruptive behavior: -15
+
+Future features may reward positive behavior:
+* Successful deals: +5
+* Completing investments on time: +2
+* Winning season: +10
+* Etc.
+
+---
+
 ## 🔐 Security & Best Practices
 
 * `.env` is excluded from Git by default (`.gitignore`)
 * **Never commit your Discord bot token**
 * Restrict Admin commands to trusted server administrators
 * DM-based investments keep strategies secret
-* No persistent database = season data resets on bot restart
+* **Database encrypted at rest** (SQLite file permissions)
+* Event logging provides transparency and audit trail
+* Reputation system deters bad behavior
+
+---
+
+## 🗄️ Database Schema
+
+The bot uses SQLite with the following tables:
+
+* **seasons** - Season configurations and lifecycle
+* **players** - Player balances and reputation
+* **businesses** - Business details and outcomes
+* **investments** - Shark investment tracking
+* **reputation_events** - Reputation change history
+* **ipos** - IPO information and status
+* **ipo_orders** - Order tracking (market/limit)
+* **negotiations** - Negotiation history logs
+* **event_channels** - Event logging configuration
+
+**Benefits:**
+* No data loss on restart
+* Complete game history
+* Analytics capabilities
+* Audit trail for transparency
 
 ---
 
@@ -463,39 +731,54 @@ If Failure:
 * **High stakes:** Elimination mechanic creates tension
 * **Fair competition:** Sharks and Entrepreneurs compete equally
 * **Replayable:** Seasonal structure with fresh starts
+* **Persistent:** Database ensures continuity
+* **Transparent:** Event logging shows all activity
+* **Modular:** Clean architecture for easy extension
 
 ---
 
 ## 🛠️ Technical Details
 
 * **Framework:** Discord.py 2.x
-* **Architecture:** Event-driven with slash commands
-* **State Management:** In-memory (resets on restart)
+* **Database:** SQLite (built-in, no external dependencies)
+* **Architecture:** Modular design with separate database and IPO modules
+* **State Management:** Persistent database + in-memory cache
 * **UI Components:** Buttons, Modals, Select Menus, Embeds
 * **DM System:** Private investment phase via direct messages
-* **No Database:** Intentionally ephemeral for season-based play
+* **Background Tasks:** Auto-close IPOs, check expirations
 
 ---
 
 ## 🚧 Known Limitations
 
-* **No persistence:** Data lost on bot restart (restart mid-season = reset)
-* **Single server:** Bot state shared across all servers (run separate instances for multiple servers)
+* **Single server state:** Bot state shared across servers (run separate instances for multi-server)
 * **No undo:** Accepted deals cannot be reversed
-* **Investment deadline:** Entrepreneurs who miss deadline cannot invest (business stays at base quality)
+* **Investment deadline:** Entrepreneurs who miss deadline cannot invest
+* **IPO complexity:** Advanced trading features not yet implemented
 
 ---
 
-## 🔮 Future Enhancement Ideas
+## 🔮 Roadmap & Future Enhancements
 
-* IPO for companies after after funding (in development!!)
-* Persistent database (SQLite/PostgreSQL) (in development!!)
-* Web dashboard for stats (in development!!)
-* Advisor roles with special abilities
-* Business milestone events
-* Shark power-ups (steal deals, veto, etc.)
-* Achievements and badges
-* Historical season leaderboards
+### In Development 🚧
+- [x] IPO system with market/limit orders
+- [x] Persistent database storage
+- [x] Reputation system
+- [x] Event logging channel
+- [ ] Web dashboard for stats and analytics
+- [ ] Secondary market trading (player-to-player)
+- [ ] Dividend payments for shareholders
+
+### Planned Features 📋
+- [ ] Advisor roles with special abilities
+- [ ] Business milestone events
+- [ ] Shark power-ups (steal deals, veto, etc.)
+- [ ] Achievements and badges
+- [ ] Historical season leaderboards
+- [ ] Multi-server isolation
+- [ ] Mobile-optimized views
+- [ ] Advanced IPO mechanics (price discovery)
+- [ ] Reputation rewards system
 
 ---
 
@@ -542,8 +825,9 @@ Contributions, bug reports, and feature requests are welcome!
 
 **Please ensure:**
 * Code follows existing style
-* Commands are documented
-* New features are explained in README updates
+* Database changes are documented
+* Commands are documented in README
+* New features include tests where applicable
 
 ---
 
@@ -552,6 +836,7 @@ Contributions, bug reports, and feature requests are welcome!
 * Inspired by the *Shark Tank* TV show format
 * Built with [Discord.py](https://discordpy.readthedocs.io/)
 * Community feedback and testing
+* Claude AI for development assistance
 
 ---
 
@@ -560,13 +845,27 @@ Contributions, bug reports, and feature requests are welcome!
 * **Issues:** [GitHub Issues](https://github.com/Anush-Bhattacharya-10/Shark-Tank-Bot/issues)
 * **Discussions:** Use GitHub Discussions for questions
 * **Discord Support:** Use `/help` command in-bot
+* **Documentation:** Check included guides (IPO_SYSTEM_GUIDE.md, MIGRATION_GUIDE.md)
+
+---
+
+## 📚 Additional Documentation
+
+* **QUICKSTART.md** - 5-minute setup guide
+* **MIGRATION_GUIDE.md** - Upgrade from V1.0.1 to V1.2.0
+* **IPO_SYSTEM_GUIDE.md** - Detailed IPO documentation
+* **FEATURES_SUMMARY.md** - Complete feature breakdown
 
 ---
 
 <p align="center">
-  <strong>Built for Discord communities that enjoy strategy, negotiation, and controlled chaos in the tank.</strong> 🦈💰
+  <strong>Built for Discord communities that enjoy strategy, negotiation, IPOs, and controlled chaos in the tank.</strong> 🦈💰📈
 </p>
 
 <p align="center">
-  Made with ❤️ by <a href="https://github.com/Anush-Bhattacharya-10">Anush Bhattacharya</a> (Claude I love you too)
+  Made with ❤️ by <a href="https://github.com/Anush-Bhattacharya-10">Anush Bhattacharya</a> with help from Claude
+</p>
+
+<p align="center">
+  <strong>Version 2.0</strong> - Now with Persistent Storage & IPO System!
 </p>
