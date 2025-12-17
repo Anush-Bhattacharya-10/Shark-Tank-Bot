@@ -50,3 +50,4 @@ htmlcov/
 # Discord / Runtime cache
 # =========================
 *.session
+desktop.ini
