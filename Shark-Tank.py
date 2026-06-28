@@ -321,6 +321,8 @@ async def admin_view_ipos(interaction: discord.Interaction):
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
 
+
+@bot.tree.command(name="admin_set_deadline", description="[ADMIN] Set investment deadline")
 @app_commands.describe(hours="Hours after deal closes for entrepreneurs to invest")
 @app_commands.checks.has_permissions(administrator=True)
 async def admin_set_deadline(interaction: discord.Interaction, hours: int):
@@ -566,6 +568,9 @@ async def generate_final_leaderboard(channel):
     )
 
     medals = ["🥇", "🥈", "🥉"]
+
+    
+    
 
     for i, (uid, money) in enumerate(sorted_players[:10], 1):
         member = bot.get_user(uid)
