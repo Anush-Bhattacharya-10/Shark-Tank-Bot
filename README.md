@@ -247,11 +247,13 @@ DISCORD_BOT_TOKEN=your_bot_token_here
 ```bash
 start.bat
 ```
+Note: Make sure venv is activated
 
-**macOS/Linux:**
+**Linux:**
 ```bash
-python Shark-Tank.py
+./start.sh
 ```
+Note: Venv gets activated using this script, so that step can be skipped.
 
 Console output will confirm:
 ```
@@ -275,7 +277,7 @@ The database (`shark_tank.db`) will be automatically created on first run!
 stop.bat
 ```
 
-**macOS/Linux:**
+**Linux:**
 ```bash
 # Press Ctrl+C in terminal
 ```
